@@ -1,5 +1,7 @@
 import discord
 from discord.ext import commands
+from dotenv import load_dotenv
+import os
 import datetime
 
 intents = discord.Intents.all()
@@ -141,4 +143,5 @@ async def on_app_command_error(
     raise error
 
 
-bot.run("MTQ1ODIzMDI4NjI2MDM3NTU5Mg.GZNLOf.m5LaBr_Dz7dYa0uf0aXXVrQJR8O3uHzyX6M9Eg")
+load_dotenv()
+TOKEN = os.getenv("DISCORD_TOKEN")
