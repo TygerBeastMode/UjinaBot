@@ -1,10 +1,3 @@
-import discord
-from discord.ext import commands, tasks
-from dotenv import load_dotenv
-import os
-import datetime
-from roblox_stats import get_group_info, get_game_stats
-
 GROUP_ID = 756148344
 UNIVERSE_ID = 8605005806
 VOICE_CHANNEL_ID = 1462891428844798022
