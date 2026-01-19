@@ -1,4 +1,3 @@
 Source code for the Ujina Bot
 
-In order to get started:
-- ill make this late
+Please, don't use without permission from tycespicee or buddywinte. Thanks!
