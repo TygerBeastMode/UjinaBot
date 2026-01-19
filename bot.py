@@ -6,8 +6,7 @@ import datetime
 from roblox_stats import get_group_info, get_game_stats
 
 GROUP_ID = 756148344
-UNIVERSE_ID = 8605005806
-VOICE_CHANNEL_ID = 1462891428844798022
+UNIVERSE_ID = 9350776156
 
 intents = discord.Intents.all()
 
@@ -60,44 +59,68 @@ def command_check(command_name: str):
         return has_command_permission(interaction, command_name)
     return discord.app_commands.check(predicate)
 
+# ---------------- Roblox Stats Updater (3 channels) ----------------
+def format_number(n):
+    try:
+        n = int(n)
+    except (TypeError, ValueError):
+        n = 0
+    if n >= 1_000_000:
+        return f"{n//1_000_000}M"
+    elif n >= 1_000:
+        return f"{n//1_000}K"
+    return str(n)
 
-# ---------------- Roblox Stats Updater ----------------
-@tasks.loop(minutes=5)  # update every 5 minutes
-async def update_stats_channel():
-    channel = bot.get_channel(VOICE_CHANNEL_ID)
-    if not channel or not isinstance(channel, discord.VoiceChannel):
-        return
+# IDs of the 3 voice channels
+MEMBERS_CHANNEL_ID = 1462906216811331878
+VISITS_CHANNEL_ID  = 1462906404427010240
+LIKES_CHANNEL_ID   = 1462906426715275542
 
+@tasks.loop(minutes=5)
+async def update_stats_channels():
     # Fetch group and game info
     group_name, members = await get_group_info(GROUP_ID)
     game_name, visits, likes = await get_game_stats(UNIVERSE_ID)
 
     if members is None or visits is None:
-        print("Failed to fetch Roblox data.")
+        print("Failed to fetch Roblox data. Skipping update.")
         return
 
-    # Format numbers (compact)
-    def format_number(n):
-        if n >= 1_000_000:
-            return f"{n//1_000_000}M"
-        elif n >= 1_000:
-            return f"{n//1_000}K"
-        return str(n)
-
+    # Format numbers
     members_display = format_number(members)
-    visits_display = format_number(visits)
-    likes_display = format_number(likes or 0)
+    visits_display  = format_number(visits)
+    likes_display   = format_number(likes or 0)
 
-    # Build channel name (max 100 chars)
-    new_name = f"👥 {members_display} | 🎮 {visits_display} | ❤️ {likes_display}"
+    # Prepare channel names
+    member_name = f"・Members: {members_display}"
+    visits_name = f"・Visits: {visits_display}"
+    likes_name  = f"・Likes: {likes_display}"
 
+    # Update Members channel
     try:
-        await channel.edit(name=new_name)
-        print(f"Updated Roblox stats channel: {new_name}")
-    except discord.Forbidden:
-        print("Missing permissions to edit channel")
+        members_channel = bot.get_channel(MEMBERS_CHANNEL_ID)
+        if members_channel:
+            await members_channel.edit(name=member_name)
     except discord.HTTPException as e:
-        print(f"Failed to update channel: {e}")
+        print(f"Failed to update Members channel: {e}")
+
+    # Update Visits channel
+    try:
+        visits_channel = bot.get_channel(VISITS_CHANNEL_ID)
+        if visits_channel:
+            await visits_channel.edit(name=visits_name)
+    except discord.HTTPException as e:
+        print(f"Failed to update Visits channel: {e}")
+
+    # Update Likes channel
+    try:
+        likes_channel = bot.get_channel(LIKES_CHANNEL_ID)
+        if likes_channel:
+            await likes_channel.edit(name=likes_name)
+    except discord.HTTPException as e:
+        print(f"Failed to update Likes channel: {e}")
+
+    print(f"Updated Roblox stats channels: {member_name}, {visits_name}, {likes_name}")
 
 
 # ---------------- Bot Events ----------------
@@ -107,12 +130,12 @@ async def on_ready():
     await bot.tree.sync()
     print("Synced application commands")
 
-    # Start Roblox stats updater
-    if not update_stats_channel.is_running():
-        update_stats_channel.start()
-        print("Roblox stats updater started.")
+    # Start Roblox stats updater (3 channels)
+    if not update_stats_channels.is_running():
+        update_stats_channels.start()
+        print("Roblox stats updater (3 channels) started.")
 
-    # Optional startup message
+    # Optional: send bot started message
     channel = bot.get_channel(1458277133519552643)
     if channel:
         embed = discord.Embed(
@@ -124,7 +147,6 @@ async def on_ready():
         await channel.send(embed=embed)
     else:
         print("Bot started but couldn't send startup message.")
-
 
 # ---------------- Slash Commands ----------------
 @tree.command(name="ping", description="Check the bot's latency")
