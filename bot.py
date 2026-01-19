@@ -1,8 +1,13 @@
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 from dotenv import load_dotenv
 import os
 import datetime
+from roblox_stats import get_group_info, get_game_stats
+
+GROUP_ID = 756148344
+UNIVERSE_ID = 8605005806
+VOICE_CHANNEL_ID = 1462891428844798022
 
 intents = discord.Intents.all()
 
@@ -55,7 +60,6 @@ def command_check(command_name: str):
         return has_command_permission(interaction, command_name)
     return discord.app_commands.check(predicate)
 
-
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user}")
@@ -77,7 +81,6 @@ async def on_ready():
 async def ping(interaction: discord.Interaction):
     latency = bot.latency * 1000
     await interaction.response.send_message(f"Pong! Latency: {latency:.2f} ms")
-
 
 # purge command
 @tree.command(name="purge", description="Delete a specified number of messages from the channel")
@@ -110,9 +113,34 @@ async def purge(interaction: discord.Interaction, number: int):
     )
 
 
+#-------------- ROBLOX STATS --------------
+@bot.event
+async def on_ready():
+    if not update_stats_channel.is_running():
+        update_stats_channel.start()
+    print(f"Logged in as {bot.user}")
+    
+@tasks.loop(minutes=5)  # DO NOT go lower than 5
+async def update_stats_channel():
+    channel = bot.get_channel(VOICE_CHANNEL_ID)
+    if not channel or not isinstance(channel, discord.VoiceChannel):
+        return
 
+    group_name, members = await get_group_info(GROUP_ID)
+    _, visits, likes = await get_game_stats(UNIVERSE_ID)
 
+    if members is None or visits is None:
+        return
 
+    new_name = f"👥 Members: {members:,} | 🎮 Visits: {visits:,}"
+
+    try:
+        await channel.edit(name=new_name)
+    except discord.Forbidden:
+        print("Missing permissions to edit channel")
+    except discord.HTTPException as e:
+        print(f"Failed to update channel: {e}")
+#-------------- END ROBLOX STATS --------------
 
 # command errors
 @tree.error
@@ -145,3 +173,4 @@ async def on_app_command_error(
 
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
+bot.run(TOKEN)
