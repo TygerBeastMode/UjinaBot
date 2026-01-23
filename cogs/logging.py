@@ -88,6 +88,8 @@ def highlight_diff_ansi(before: str, after: str):
 class Logging(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
+        self._self_updates: set[int] = set()
+        bot.logging_cog = self
 
     # lifecycle
     @commands.Cog.listener()
@@ -115,6 +117,9 @@ class Logging(commands.Cog):
 
     @commands.Cog.listener()
     async def on_guild_channel_delete(self, channel: discord.abc.GuildChannel):
+        if channel.id in self._self_updates:
+            self._self_updates.discard(channel.id)
+            return
         embed = discord.Embed(
             title="🗑️ Channel Deleted",
             description=f"A channel was deleted in **{channel.guild.name}**",
@@ -133,8 +138,6 @@ class Logging(commands.Cog):
         for target, overwrite in channel.overwrites.items():
             perms.append(f"{target}: {overwrite}")
         perms_text = format_overwrites_ansi(channel.overwrites)
-        if len(perms_text) > 400:
-            perms_text = perms_text[:400] + "..."
         info = [
             f"**Name:** {channel.name} (`{channel.id}`)",
             f"**Type:** {channel.type}",
@@ -166,6 +169,9 @@ class Logging(commands.Cog):
 
     @commands.Cog.listener()
     async def on_guild_channel_create(self, channel: discord.abc.GuildChannel):
+        if channel.id in self._self_updates:
+            self._self_updates.discard(channel.id)
+            return
         embed = discord.Embed(
             title="📥 Channel Created",
             description=f"A new channel was created in **{channel.guild.name}**",
@@ -179,8 +185,6 @@ class Logging(commands.Cog):
         for target, overwrite in channel.overwrites.items():
             perms.append(f"{target}: {overwrite}")
         perms_text = format_overwrites_ansi(channel.overwrites)
-        if len(perms_text) > 400:
-            perms_text = perms_text[:400] + "…"
         info = [
             f"**Name:** {channel.name}",
             f"**ID:** {channel.id}",
@@ -219,6 +223,9 @@ class Logging(commands.Cog):
 
     @commands.Cog.listener()
     async def on_guild_channel_update(self, before: discord.abc.GuildChannel, after: discord.abc.GuildChannel):
+        if after.id in self._self_updates:
+            self._self_updates.discard(after.id)
+            return
         changes = []
         def normalize_topic(topic):
             return None if not topic else topic # discord topics are weird?
@@ -253,7 +260,6 @@ class Logging(commands.Cog):
                 before_perm = before_overwrites.get(target, discord.PermissionOverwrite())
                 after_perm = after_overwrites.get(target, discord.PermissionOverwrite())
                 changes_list = []
-
                 for perm_name, _ in before_perm:
                     b_val = getattr(before_perm, perm_name, None)
                     a_val = getattr(after_perm, perm_name, None)
@@ -263,10 +269,8 @@ class Logging(commands.Cog):
                             changes_list.append(f"\u001b[1;32m{readable}\u001b[0m")  # allowed
                         elif a_val is False:
                             changes_list.append(f"\u001b[1;31m{readable}\u001b[0m")  # denied
-
                 if changes_list:
                     diffs.append(f"{target}: {', '.join(changes_list)}")
-
             return "\n".join(diffs)
         perms_changes = perms_diff_ansi(before.overwrites, after.overwrites)
         if perms_changes:
